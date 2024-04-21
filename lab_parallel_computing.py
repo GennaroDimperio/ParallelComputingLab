@@ -115,7 +115,6 @@ if __name__ == '__main__':
     manager = Manager()
     intrusion_signsP = Manager().list()
     ip_category_countsP = Manager().dict()
-    consecutive_failures = []
     ip_path = "C:\\Users\\Empir\\Desktop\\ip.txt"
     ip_path2 = "C:\\Users\\Empir\\Desktop\\ip2.txt"
     log_file_path = "C:\\Users\\Empir\\Desktop\\SSH2.log"
