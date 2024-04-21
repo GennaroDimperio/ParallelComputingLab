@@ -36,6 +36,7 @@ def categorize_log_entry(log_entry):
 
 def process_log_sequential(log_file_path):
     ip_category_counts_S = {}
+
     intrusion_signs = []
 
     with open(log_file_path, "r") as log_file:
@@ -66,13 +67,13 @@ def process_log_sequential(log_file_path):
 
 def process_chunk(chunk):
     local_ip_category_counts = {}
-    local_intrusion_signs = []
+    local_intrusion_signsP = []
     for log_entry in chunk:
         category, ip = categorize_log_entry(log_entry)
         if category != "Unknown":
-            local_intrusion_signs.append(category)
+            local_intrusion_signsP.append(category)
             local_ip_category_counts.setdefault(ip, set()).add(category)
-    return local_ip_category_counts, local_intrusion_signs
+    return local_ip_category_counts, local_intrusion_signsP
 
 def process_log_parallel(log_file_path, num_processes):
     with open(log_file_path, "r") as log_file:
@@ -100,8 +101,10 @@ def process_log_parallel(log_file_path, num_processes):
     for ip_counts, intrusion in results:
         for category in intrusion:
             category_counts[category] = category_counts.get(category, 0) + 1
+
     sorted_categories = sorted(category_counts, key=category_counts.get, reverse=True)
     sorted_sizes = [category_counts[category] for category in sorted_categories]
+
     plt.figure(figsize=(8, 6))
     plt.bar(sorted_categories, sorted_sizes)
     plt.xticks(rotation=45, ha='right')
@@ -110,10 +113,9 @@ def process_log_parallel(log_file_path, num_processes):
     plt.title('Categorized Log Entries PAR')
     plt.show()
 
-
 if __name__ == '__main__':
+    
     manager = Manager()
-    intrusion_signsP = Manager().list()
     ip_category_countsP = Manager().dict()
     ip_path = "C:\\Users\\Empir\\Desktop\\ip.txt"
     ip_path2 = "C:\\Users\\Empir\\Desktop\\ip2.txt"
@@ -125,7 +127,7 @@ if __name__ == '__main__':
     execution_timeS = end_time - start_time
     print("Sequential execution time: {:.2f} seconds".format(execution_timeS))
     # Parallel Processing
-    num_processes = 4
+    num_processes = 8
     start_time = time.time()
     process_log_parallel(log_file_path, num_processes)
     end_time = time.time()
