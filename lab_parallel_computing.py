@@ -66,13 +66,13 @@ def process_log_sequential(log_file_path):
 
 def process_chunk(chunk):
     local_ip_category_counts = {}
-    local_intrusion_signsP = []
+    local_intrusion_signs = []
     for log_entry in chunk:
         category, ip = categorize_log_entry(log_entry)
         if category != "Unknown":
-            local_intrusion_signsP.append(category)
+            local_intrusion_signs.append(category)
             local_ip_category_counts.setdefault(ip, set()).add(category)
-    return local_ip_category_counts, local_intrusion_signsP
+    return local_ip_category_counts, local_intrusion_signs
 
 def process_log_parallel(log_file_path, num_processes):
     with open(log_file_path, "r") as log_file:
