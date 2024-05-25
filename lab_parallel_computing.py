@@ -1,11 +1,12 @@
 import re
 import matplotlib.pyplot as plt
 import time
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool
+from collections import defaultdict
 
 def categorize_log_entry(log_entry):
-    ip_match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", log_entry) 
-    ip = ip_match.group(0) if ip_match else None  
+    ip_match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", log_entry)
+    ip = ip_match.group(0) if ip_match else None
     
     if "Connection closed" in log_entry and "[preauth]" in log_entry:
         return "Connection closed [preauth]", ip
@@ -35,28 +36,29 @@ def categorize_log_entry(log_entry):
         return "Unknown", ip
 
 def process_log_sequential(log_file_path):
-    ip_category_counts_S = {}
-
+    ip_category_counts_S = defaultdict(set)
     intrusion_signs = []
-
+    
     with open(log_file_path, "r") as log_file:
         for line in log_file:
             log_entry = line.strip()
             category, ip = categorize_log_entry(log_entry)
             if category != "Unknown":
                 intrusion_signs.append(category)
-                ip_category_counts_S.setdefault(ip, set()).add(category)  
+                ip_category_counts_S[ip].add(category)
 
     with open(ip_path, "w") as output_file:
         for ip, categories in ip_category_counts_S.items():
-            if len(categories) >= 2 and ip!= None:  
+            if len(categories) >= 2 and ip:
                 output_file.write(f"{ip}: {len(categories)} categories: {categories}\n")
 
-    category_counts = {}
+    category_counts = defaultdict(int)
     for category in intrusion_signs:
-        category_counts[category] = category_counts.get(category, 0) + 1
+        category_counts[category] += 1
+
     sorted_categories = sorted(category_counts, key=category_counts.get, reverse=True)
     sorted_sizes = [category_counts[category] for category in sorted_categories]
+
     plt.figure(figsize=(8, 6))
     plt.bar(sorted_categories, sorted_sizes)
     plt.xticks(rotation=45, ha='right')
@@ -66,41 +68,46 @@ def process_log_sequential(log_file_path):
     plt.show()
 
 def process_chunk(chunk):
-    local_ip_category_counts = {}
+    local_ip_category_counts = defaultdict(set)
     local_intrusion_signsP = []
     for log_entry in chunk:
         category, ip = categorize_log_entry(log_entry)
         if category != "Unknown":
             local_intrusion_signsP.append(category)
-            local_ip_category_counts.setdefault(ip, set()).add(category)
+            local_ip_category_counts[ip].add(category)
     return local_ip_category_counts, local_intrusion_signsP
+
+def merge_results(results):
+    merged_ip_counts = defaultdict(set)
+    merged_intrusion_signs = []
+
+    for ip_counts, intrusion in results:
+        merged_intrusion_signs.extend(intrusion)
+        for ip, categories in ip_counts.items():
+            merged_ip_counts[ip].update(categories)
+
+    return merged_ip_counts, merged_intrusion_signs
 
 def process_log_parallel(log_file_path, num_processes):
     with open(log_file_path, "r") as log_file:
         lines = log_file.readlines()
-    chunk_size = len(lines) // num_processes
+
+    chunk_size = (len(lines) + num_processes - 1) // num_processes
     chunks = [lines[i:i + chunk_size] for i in range(0, len(lines), chunk_size)]
 
     with Pool(processes=num_processes) as pool:
         results = pool.map(process_chunk, chunks)
-        
-        for ip_counts, intrusion in results:
-            for ip, categories in ip_counts.items():
-                if ip is not None:
-                    ip_dict = ip_category_countsP.get(ip, {})
-                    for category in categories:
-                        ip_dict[category] = ip_dict.get(category, 0) + 1
-                    ip_category_countsP[ip] = ip_dict
+    
+    ip_category_countsP, intrusion_signs = merge_results(results)
 
     with open(ip_path2, "w") as output_file:
         for ip, categories in ip_category_countsP.items():
-            if len(categories) >= 2 and ip != None:
+            if len(categories) >= 2 and ip:
                 output_file.write(f"{ip}: {len(categories)} categories: {categories}\n")
 
-    category_counts = {}
-    for ip_counts, intrusion in results:
-        for category in intrusion:
-            category_counts[category] = category_counts.get(category, 0) + 1
+    category_counts = defaultdict(int)
+    for category in intrusion_signs:
+        category_counts[category] += 1
 
     sorted_categories = sorted(category_counts, key=category_counts.get, reverse=True)
     sorted_sizes = [category_counts[category] for category in sorted_categories]
@@ -114,9 +121,6 @@ def process_log_parallel(log_file_path, num_processes):
     plt.show()
 
 if __name__ == '__main__':
-    
-    manager = Manager()
-    ip_category_countsP = Manager().dict()
     ip_path = "C:\\Users\\Empir\\Desktop\\ip.txt"
     ip_path2 = "C:\\Users\\Empir\\Desktop\\ip2.txt"
     log_file_path = "C:\\Users\\Empir\\Desktop\\SSH2.log"
