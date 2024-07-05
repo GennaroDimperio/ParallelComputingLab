@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import time
 from multiprocessing import Pool
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 def categorize_log_entry(log_entry):
     ip_match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", log_entry)
@@ -88,6 +89,11 @@ def merge_results(results):
 
     return merged_ip_counts, merged_intrusion_signs
 
+def write_ip_txt(ip, categories):
+    with open(ip_path2, "a") as output_file:
+        if len(categories) >= 2 and ip:
+            output_file.write(f"{ip}: {len(categories)} categories: {categories}\n")
+
 def process_log_parallel(log_file_path, num_processes):
     with open(log_file_path, "r") as log_file:
         lines = log_file.readlines()
@@ -100,10 +106,11 @@ def process_log_parallel(log_file_path, num_processes):
     
     ip_category_countsP, intrusion_signs = merge_results(results)
 
-    with open(ip_path2, "w") as output_file:
-        for ip, categories in ip_category_countsP.items():
-            if len(categories) >= 2 and ip:
-                output_file.write(f"{ip}: {len(categories)} categories: {categories}\n")
+    with ThreadPoolExecutor(max_workers=num_processes) as executor:
+        futures = [executor.submit(write_ip_txt, ip, categories) for ip, categories in ip_category_countsP.items()]
+
+    for future in futures:
+        future.result()
 
     category_counts = defaultdict(int)
     for category in intrusion_signs:
